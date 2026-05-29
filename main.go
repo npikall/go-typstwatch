@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -40,10 +41,13 @@ es.onmessage = () => {
 </html>`
 
 func main() {
-	if len(os.Args) < 2 {
-		log.Fatal("usage: livepdf <file.pdf>")
+	port := flag.Int("port", 42069, "port to listen on")
+	flag.Parse()
+
+	if flag.NArg() < 1 {
+		log.Fatal("usage: livepdf [-port N] <file.pdf>")
 	}
-	pdfPath, err := filepath.Abs(os.Args[1])
+	pdfPath, err := filepath.Abs(flag.Arg(0))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -59,7 +63,7 @@ func main() {
 	})
 	http.HandleFunc("/events", eventsHandler)
 
-	addr := "127.0.0.1:7331"
+	addr := fmt.Sprintf("127.0.0.1:%d", *port)
 	log.Printf("serving %s at http://%s", pdfPath, addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
