@@ -18,8 +18,8 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() < 1 {
-		fmt.Println("go-typstwatcher [-port N] [-format pdf|png|svg] [-diagnostic-format human|short] [-root DIR] <file.typ>")
-		fmt.Println()
+		fmt.Println("go-typstwatch [-port N] [-format pdf|png|svg] [-diagnostic-format human|short]")
+		fmt.Println("              [-root DIR] <file.typ>")
 		flag.Usage()
 		os.Exit(1)
 	}

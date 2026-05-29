@@ -3,8 +3,8 @@
 Compile Typst Documents and watch them live in the Browser.
 
 ```console
-go-typstwatcher [-port N] [-format pdf|png|svg] [-diagnostic-format human|short] <file.typ>
-
+go-typstwatch [-port N] [-format pdf|png|svg] [-diagnostic-format human|short]
+              [-root DIR] <file.typ>
 Usage of go-typstwatch:
   -diagnostic-format string
      typst diagnostic format (human, short) (default "short")
@@ -12,4 +12,6 @@ Usage of go-typstwatch:
      output format passed to typst watch (pdf, png, svg) (default "pdf")
   -port int
      port to listen on (default 42069)
+  -root string
+     root directory for typst file access (default: input file directory)
 ```
