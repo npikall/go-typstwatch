@@ -19,11 +19,16 @@ func resolveTargets(inputPath, format, diagnosticFormat string) (outputPath stri
 		return inputPath, nil
 	}
 	stem := strings.TrimSuffix(inputPath, filepath.Ext(inputPath))
-	return stem + "." + format, exec.Command(
-		"typst", "watch", inputPath,
-		"--format", format,
-		"--diagnostic-format", diagnosticFormat,
-	)
+	outPath := stem + "." + format
+
+	args := []string{"watch", inputPath}
+	if format != "pdf" {
+		// PNG/SVG produce one file per page; typst requires {p} template in output path.
+		args = append(args, stem+"-{p}."+format)
+	}
+	args = append(args, "--format", format, "--diagnostic-format", diagnosticFormat)
+
+	return outPath, exec.Command("typst", args...)
 }
 
 func launchTypstWatch(cmd *exec.Cmd) error {
