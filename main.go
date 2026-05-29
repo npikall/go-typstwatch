@@ -47,13 +47,10 @@ func main() {
 	stem := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
 	ext := filepath.Ext(outputPath)
 
+	page := buildHTML(*format, stem)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if *format == "pdf" {
-			fmt.Fprint(w, pdfHTML)
-		} else {
-			fmt.Fprint(w, imageHTML)
-		}
+		fmt.Fprint(w, page)
 	})
 	http.HandleFunc("/events", eventsHandler)
 
