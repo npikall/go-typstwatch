@@ -14,10 +14,11 @@ func main() {
 	port := flag.Int("port", 42069, "port to listen on")
 	format := flag.String("format", "pdf", "output format passed to typst watch (pdf, png, svg)")
 	diagnosticFormat := flag.String("diagnostic-format", "short", "typst diagnostic format (human, short)")
+	root := flag.String("root", "", "root directory for typst file access (default: input file directory)")
 	flag.Parse()
 
 	if flag.NArg() < 1 {
-		fmt.Println("go-typstwatcher [-port N] [-format pdf|png|svg] [-diagnostic-format human|short] <file.typ>")
+		fmt.Println("go-typstwatcher [-port N] [-format pdf|png|svg] [-diagnostic-format human|short] [-root DIR] <file.typ>")
 		fmt.Println()
 		flag.Usage()
 		os.Exit(1)
@@ -28,7 +29,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	outputPath, typstCmd := resolveTargets(inputPath, *format, *diagnosticFormat)
+	outputPath, typstCmd := resolveTargets(inputPath, *format, *diagnosticFormat, *root)
 
 	if typstCmd != nil {
 		if err := launchTypstWatch(typstCmd); err != nil {

@@ -14,7 +14,7 @@ import (
 
 // resolveTargets returns the output path to serve/watch and, for .typ input,
 // a ready-to-start "typst watch" command with the requested format.
-func resolveTargets(inputPath, format, diagnosticFormat string) (outputPath string, typstCmd *exec.Cmd) {
+func resolveTargets(inputPath, format, diagnosticFormat, root string) (outputPath string, typstCmd *exec.Cmd) {
 	if !strings.EqualFold(filepath.Ext(inputPath), ".typ") {
 		return inputPath, nil
 	}
@@ -28,7 +28,18 @@ func resolveTargets(inputPath, format, diagnosticFormat string) (outputPath stri
 	}
 	args = append(args, "--format", format, "--diagnostic-format", diagnosticFormat)
 
-	return outPath, exec.Command("typst", args...)
+	if root == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		root = cwd
+	}
+	args = append(args, "--root", root)
+
+	cmd := exec.Command("typst", args...)
+	cmd.Dir = filepath.Dir(inputPath)
+	return outPath, cmd
 }
 
 func launchTypstWatch(cmd *exec.Cmd) error {
