@@ -4,9 +4,12 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
+
+const debounceDuration = 50 * time.Millisecond
 
 func watchOutput(outputPath string) {
 	watcher, err := fsnotify.NewWatcher()
@@ -21,6 +24,7 @@ func watchOutput(outputPath string) {
 	}
 
 	stem := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
+	var debounce *time.Timer
 	for {
 		select {
 		case event, ok := <-watcher.Events:
@@ -29,8 +33,14 @@ func watchOutput(outputPath string) {
 			}
 			if matchesOutputStem(event.Name, stem) {
 				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
-					log.Printf("output updated: %s", filepath.Base(event.Name))
-					broadcast()
+					name := filepath.Base(event.Name)
+					if debounce != nil {
+						debounce.Stop()
+					}
+					debounce = time.AfterFunc(debounceDuration, func() {
+						log.Printf("output updated: %s", name)
+						broadcast()
+					})
 				}
 			}
 		case err, ok := <-watcher.Errors:
