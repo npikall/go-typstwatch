@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -21,7 +27,7 @@ const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>LivePDF</title>
+<title>Go TypstWatcher</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; background: #404040; }
@@ -45,17 +51,31 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() < 1 {
-		log.Fatal("usage: livepdf [-port N] <file.pdf>")
+		fmt.Println("go-typstwatcher [-port N] <file.typ>")
+		fmt.Println()
+		flag.Usage()
+		os.Exit(1)
 	}
-	pdfPath, err := filepath.Abs(flag.Arg(0))
+
+	inputPath, err := filepath.Abs(flag.Arg(0))
 	if err != nil {
 		log.Fatal(err)
 	}
-	if _, err := os.Stat(pdfPath); err != nil {
-		log.Fatalf("cannot open %s: %v", pdfPath, err)
+
+	pdfPath, typstCmd := resolveTargets(inputPath)
+
+	if typstCmd != nil {
+		if err := launchTypstWatch(typstCmd); err != nil {
+			log.Fatalf("failed to start typst watch: %v", err)
+		}
+		killOnShutdown(typstCmd)
+	} else {
+		if _, err := os.Stat(pdfPath); err != nil {
+			log.Fatalf("cannot open %s: %v", pdfPath, err)
+		}
 	}
 
-	go watch(pdfPath)
+	go watchPDF(pdfPath)
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/pdf", func(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +86,58 @@ func main() {
 	addr := fmt.Sprintf("127.0.0.1:%d", *port)
 	log.Printf("serving %s at http://%s", pdfPath, addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
+// resolveTargets returns the PDF path to serve/watch and, for .typ input,
+// a ready-to-start "typst watch" command.
+func resolveTargets(inputPath string) (pdfPath string, typstCmd *exec.Cmd) {
+	if strings.EqualFold(filepath.Ext(inputPath), ".typ") {
+		stem := strings.TrimSuffix(inputPath, filepath.Ext(inputPath))
+		return stem + ".pdf", exec.Command("typst", "watch", inputPath)
+	}
+	return inputPath, nil
+}
+
+func launchTypstWatch(cmd *exec.Cmd) error {
+	cmd.Stdout = io.Discard
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	go forwardTypstErrors(stderr)
+
+	log.Printf("starting: %s", strings.Join(cmd.Args, " "))
+	return cmd.Start()
+}
+
+func forwardTypstErrors(r io.Reader) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !isTypstStatusLine(line) {
+			log.Printf("[typst] %s", line)
+		}
+	}
+}
+
+func isTypstStatusLine(line string) bool {
+	lower := strings.ToLower(strings.TrimSpace(line))
+	return strings.HasPrefix(lower, "watching") ||
+		strings.Contains(lower, "compiled successfully")
+}
+
+// killOnShutdown kills the child process when SIGINT or SIGTERM is received.
+func killOnShutdown(cmd *exec.Cmd) {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-ch
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		os.Exit(0)
+	}()
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +192,7 @@ func broadcast() {
 	}
 }
 
-func watch(pdfPath string) {
+func watchPDF(pdfPath string) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -141,6 +213,7 @@ func watch(pdfPath string) {
 			}
 			if filepath.Base(event.Name) == base {
 				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
+					log.Printf("pdf updated: %s", base)
 					broadcast()
 				}
 			}
