@@ -84,7 +84,7 @@ func main() {
 	http.HandleFunc("/events", eventsHandler)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", *port)
-	log.Printf("serving %s at http://%s", pdfPath, addr)
+	log.Printf("serving %s at http://%s", filepath.Base(pdfPath), addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
