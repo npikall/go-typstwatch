@@ -119,6 +119,9 @@ func forwardTypstErrors(r io.Reader) {
 			log.Printf("[typst] %s", line)
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func isTypstStatusLine(line string) bool {
