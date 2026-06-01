@@ -1,4 +1,4 @@
-# Go TypstWatcher
+# Go TypstWatch
 
 Compile Typst Documents and watch them live in the Browser.
 
